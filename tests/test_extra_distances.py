@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-#! /usr/bin/env python2
 # noqa E741
 
 import numpy as np
@@ -11,7 +10,7 @@ import numpy as np
 import faiss
 import unittest
 
-from common import get_dataset_2
+from common_faiss_tests import get_dataset_2
 
 import scipy.spatial.distance
 
@@ -105,6 +104,12 @@ class TestKNN(unittest.TestCase):
 
         for q in range(nq):
             assert np.all(D[q] == dis[q, I[q]])
+
+        index2 = faiss.deserialize_index(faiss.serialize_index(index))
+
+        D2, I2 = index2.search(xq, 10)
+
+        self.assertTrue(np.all(I == I2))
 
     def test_L1(self):
         self.do_test_knn(faiss.METRIC_L1)

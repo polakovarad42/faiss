@@ -3,20 +3,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-#! /usr/bin/env python2
-
 """this is a basic test script for simple indices work"""
 
+import os
+import sys
 import numpy as np
 import unittest
 import faiss
 
+from common_faiss_tests import compare_binary_result_lists, make_binary_dataset
 
-def make_binary_dataset(d, nt, nb, nq):
-    assert d % 8 == 0
-    rs = np.random.RandomState(123)
-    x = rs.randint(256, size=(nb + nq + nt, int(d / 8))).astype('uint8')
-    return x[:nt], x[nt:-nq], x[-nq:]
 
 
 def binary_to_float(x):
@@ -125,6 +121,29 @@ class TestBinaryFlat(unittest.TestCase):
             assert(np.all(Iflat == -1))
             assert(np.all(Dflat == 2147483647)) # NOTE(hoss): int32_t max
 
+    def test_range_search(self):
+        d = self.xq.shape[1] * 8
+
+        index = faiss.IndexBinaryFlat(d)
+        index.add(self.xb)
+        D, I = index.search(self.xq, 10)
+        thresh = int(np.median(D[:, -1]))
+
+        lims, D2, I2 = index.range_search(self.xq, thresh)
+        nt1 = nt2 = 0
+        for i in range(len(self.xq)):
+            range_res = I2[lims[i]:lims[i + 1]]
+            if thresh > D[i, -1]:
+                self.assertTrue(set(I[i]) <= set(range_res))
+                nt1 += 1
+            elif thresh < D[i, -1]:
+                self.assertTrue(set(range_res) <= set(I[i]))
+                nt2 += 1
+            # in case of equality we have a problem with ties
+        print('nb tests', nt1, nt2)
+        # nb tests is actually low...
+        self.assertTrue(nt1 > 19 and nt2 > 19)
+
 
 class TestBinaryIVF(unittest.TestCase):
 
@@ -165,7 +184,32 @@ class TestBinaryIVF(unittest.TestCase):
         index.add(self.xb)
         Divfflat, _ = index.search(self.xq, 10)
 
-        self.assertEqual((self.Dref == Divfflat).sum(), 4122)
+        # Some centroids are equidistant from the query points.
+        # So the answer will depend on the implementation of the heap.
+        self.assertGreater((self.Dref == Divfflat).sum(), 4100)
+
+    def test_ivf_range(self):
+        d = self.xq.shape[1] * 8
+
+        quantizer = faiss.IndexBinaryFlat(d)
+        index = faiss.IndexBinaryIVF(quantizer, d, 8)
+        index.cp.min_points_per_centroid = 5    # quiet warning
+        index.nprobe = 4
+        index.train(self.xt)
+        index.add(self.xb)
+        D, I = index.search(self.xq, 10)
+
+        radius = int(np.median(D[:, -1]) + 1)
+        Lr, Dr, Ir = index.range_search(self.xq, radius)
+
+        for i in range(len(self.xq)):
+            res = Ir[Lr[i]:Lr[i + 1]]
+            if D[i, -1] < radius:
+                self.assertTrue(set(I[i]) <= set(res))
+            else:
+                subset = I[i, D[i, :] < radius]
+                self.assertTrue(set(subset) == set(res))
+
 
     def test_ivf_flat_empty(self):
         d = self.xq.shape[1] * 8
@@ -179,6 +223,72 @@ class TestBinaryIVF(unittest.TestCase):
 
             assert(np.all(Iivfflat == -1))
             assert(np.all(Divfflat == 2147483647)) # NOTE(hoss): int32_t max
+
+    def test_ivf_reconstruction(self):
+        d = self.xq.shape[1] * 8
+        quantizer = faiss.IndexBinaryFlat(d)
+        index = faiss.IndexBinaryIVF(quantizer, d, 8)
+        index.cp.min_points_per_centroid = 5    # quiet warning
+        index.nprobe = 4
+        index.train(self.xt)
+
+        index.add(self.xb)
+        index.set_direct_map_type(faiss.DirectMap.Array)
+
+        for i in range(0, len(self.xb), 13):
+            np.testing.assert_array_equal(
+                index.reconstruct(i),
+                self.xb[i]
+            )
+
+        # try w/ hashtable
+        index = faiss.IndexBinaryIVF(quantizer, d, 8)
+        rs = np.random.RandomState(123)
+        ids = rs.choice(10000, size=len(self.xb), replace=False).astype(np.int64)
+        index.add_with_ids(self.xb, ids)
+        index.set_direct_map_type(faiss.DirectMap.Hashtable)
+
+        for i in range(0, len(self.xb), 13):
+            np.testing.assert_array_equal(
+                index.reconstruct(int(ids[i])),
+                self.xb[i]
+            )
+
+    def test_ivf_nprobe(self):
+        """Test in case of nprobe > nlist."""
+        d = self.xq.shape[1] * 8
+        xt, xb, xq = self.xt, self.xb, self.xq
+
+        # nlist = 10
+        index = faiss.index_binary_factory(d, "BIVF10")
+
+        # When nprobe >= nlist, it is equivalent to an IndexFlat.
+
+        index.train(xt)
+        index.add(xb)
+        index.nprobe = 2048
+        k = 5
+
+        # test kNN search
+        D, I = index.search(xq, k)
+
+        ref_index = faiss.index_binary_factory(d, "BFlat")
+        ref_index.add(xb)
+        ref_D, ref_I = ref_index.search(xq, k)
+
+        print(D[0], ref_D[0])
+        print(I[0], ref_I[0])
+        assert np.all(D == ref_D)
+        # assert np.all(I == ref_I)  # id may be different
+
+        # test range search
+        thresh = 5   # *squared* distance
+        lims, D, I = index.range_search(xq, thresh)
+        ref_lims, ref_D, ref_I = ref_index.range_search(xq, thresh)
+        assert np.all(lims == ref_lims)
+        assert np.all(D == ref_D)
+        # assert np.all(I == ref_I)  # id may be different
+
 
 class TestHNSW(unittest.TestCase):
 
@@ -227,30 +337,11 @@ class TestHNSW(unittest.TestCase):
         self.assertTrue((Dref == Dbin).all())
 
 
-def compare_binary_result_lists(D1, I1, D2, I2):
-    """comparing result lists is difficult because there are many
-    ties. Here we sort by (distance, index) pairs and ignore the largest
-    distance of each result. Compatible result lists should pass this."""
-    assert D1.shape == I1.shape == D2.shape == I2.shape
-    n, k = D1.shape
-    ndiff = (D1 != D2).sum()
-    assert ndiff == 0, '%d differences in distance matrix %s' % (
-        ndiff, D1.shape)
-
-    def normalize_DI(D, I):
-        norm = I.max() + 1.0
-        Dr = D.astype('float64') + I / norm
-        # ignore -1s and elements on last column
-        Dr[I1 == -1] = 1e20
-        Dr[D == D[:, -1:]] = 1e20
-        Dr.sort(axis=1)
-        return Dr
-    ndiff = (normalize_DI(D1, I1) != normalize_DI(D2, I2)).sum()
-    assert ndiff == 0, '%d differences in normalized D matrix' % ndiff
-
 
 class TestReplicasAndShards(unittest.TestCase):
 
+    @unittest.skipIf(os.name == "posix" and os.uname().sysname == "Darwin",
+                     "There is a bug in the OpenMP implementation on OSX.")
     def test_replicas(self):
         d = 32
         nq = 100
@@ -265,7 +356,7 @@ class TestReplicasAndShards(unittest.TestCase):
 
         nrep = 5
         index = faiss.IndexBinaryReplicas()
-        for i in range(nrep):
+        for _i in range(nrep):
             sub_idx = faiss.IndexBinaryFlat(d)
             sub_idx.add(xb)
             index.addIndex(sub_idx)
@@ -276,7 +367,7 @@ class TestReplicasAndShards(unittest.TestCase):
         self.assertTrue((Iref == I).all())
 
         index2 = faiss.IndexBinaryReplicas()
-        for i in range(nrep):
+        for _i in range(nrep):
             sub_idx = faiss.IndexBinaryFlat(d)
             index2.addIndex(sub_idx)
 
@@ -310,7 +401,7 @@ class TestReplicasAndShards(unittest.TestCase):
         compare_binary_result_lists(Dref, Iref, D, I)
 
         index2 = faiss.IndexBinaryShards(d)
-        for i in range(nrep):
+        for _i in range(nrep):
             sub_idx = faiss.IndexBinaryFlat(d)
             index2.add_shard(sub_idx)
 

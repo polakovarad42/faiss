@@ -3,9 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-#! /usr/bin/env python2
-
 """make sure that the referenced objects are kept"""
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import numpy as np
 import unittest
@@ -71,14 +70,14 @@ class TestReferenced(unittest.TestCase):
     def test_IDMap(self):
         sub_index = faiss.IndexFlatL2(d)
         index = faiss.IndexIDMap(sub_index)
-        index.add_with_ids(xb, np.arange(len(xb)))
+        index.add_with_ids(xb, np.arange(len(xb), dtype='int64'))
         del sub_index
         gc.collect()
-        index.add_with_ids(xb, np.arange(len(xb)))
+        index.add_with_ids(xb, np.arange(len(xb), dtype='int64'))
 
     def test_shards(self):
         index = faiss.IndexShards(d)
-        for i in range(3):
+        for _i in range(3):
             sub_index = faiss.IndexFlatL2(d)
             sub_index.add(xb)
             index.add_shard(sub_index)

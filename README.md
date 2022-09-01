@@ -1,40 +1,22 @@
-# Faiss 
+# Faiss
 
-Faiss is a library for efficient similarity search and clustering of dense vectors. It contains algorithms that search in sets of vectors of any size, up to ones that possibly do not fit in RAM. It also contains supporting code for evaluation and parameter tuning. Faiss is written in C++ with complete wrappers for Python/numpy. Some of the most useful algorithms are implemented on the GPU. It is developed by [Facebook AI Research](https://research.fb.com/category/facebook-ai-research-fair/).
+Faiss is a library for efficient similarity search and clustering of dense vectors. It contains algorithms that search in sets of vectors of any size, up to ones that possibly do not fit in RAM. It also contains supporting code for evaluation and parameter tuning. Faiss is written in C++ with complete wrappers for Python/numpy. Some of the most useful algorithms are implemented on the GPU. It is developed primarily at [Facebook AI Research](https://ai.facebook.com/).
 
-## NEWS
+## News
 
-*NEW: version 1.6.0 (2019-10-15) code structure reorg, support for codec interface.*
-
-*NEW: version 1.5.3 (2019-06-24) fix performance regression in IndexIVF.*
-
-*NEW: version 1.5.2 (2019-05-27) the license was relaxed to MIT from BSD+Patents. Read LICENSE for details.*
-
-*NEW: version 1.5.0 (2018-12-19) GPU binary flat index and binary HNSW index*
-
-*NEW: version 1.4.0 (2018-08-30) no more crashes in pure Python code*
-
-*NEW: version 1.3.0 (2018-07-12) support for binary indexes*
-
-*NEW: latest commit (2018-02-22) supports on-disk storage of inverted indexes, see demos/demo_ondisk_ivf.py*
-
-*NEW: latest commit (2018-01-09) includes an implementation of the HNSW indexing method, see benchs/bench_hnsw.py*
-
-*NEW: there is now a Facebook public discussion group for Faiss users at https://www.facebook.com/groups/faissusers/*
-
-*NEW: on 2017-07-30, the license on Faiss was relaxed to BSD from CC-BY-NC. Read LICENSE for details.*
+See [CHANGELOG.md](CHANGELOG.md) for detailed information about latest features.
 
 ## Introduction
 
-Faiss contains several methods for similarity search. It assumes that the instances are represented as vectors and are identified by an integer, and that the vectors can be compared with L2 distances or dot products. Vectors that are similar to a query vector are those that have the lowest L2 distance or the highest dot product with the query vector. It also supports cosine similarity, since this is a dot product on normalized vectors.
+Faiss contains several methods for similarity search. It assumes that the instances are represented as vectors and are identified by an integer, and that the vectors can be compared with L2 (Euclidean) distances or dot products. Vectors that are similar to a query vector are those that have the lowest L2 distance or the highest dot product with the query vector. It also supports cosine similarity, since this is a dot product on normalized vectors.
 
-Most of the methods, like those based on binary vectors and compact quantization codes, solely use a compressed representation of the vectors and do not require to keep the original vectors. This generally comes at the cost of a less precise search but these methods can scale to billions of vectors in main memory on a single server. 
+Some of the methods, like those based on binary vectors and compact quantization codes, solely use a compressed representation of the vectors and do not require to keep the original vectors. This generally comes at the cost of a less precise search but these methods can scale to billions of vectors in main memory on a single server. Other methods, like HNSW and NSG add an indexing structure on top of the raw vectors to make searching more efficient.
 
 The GPU implementation can accept input from either CPU or GPU memory. On a server with GPUs, the GPU indexes can be used a drop-in replacement for the CPU indexes (e.g., replace `IndexFlatL2` with `GpuIndexFlatL2`) and copies to/from GPU memory are handled automatically. Results will be faster however if both input and output remain resident on the GPU. Both single and multi-GPU usage is supported.
 
-## Building 
+## Installing
 
-The library is mostly implemented in C++, with optional GPU support provided via CUDA, and an optional Python interface. The CPU version requires a BLAS library. It compiles with a Makefile and can be packaged in a docker image. See [INSTALL.md](INSTALL.md) for details.
+Faiss comes with precompiled libraries for Anaconda in Python, see [faiss-cpu](https://anaconda.org/pytorch/faiss-cpu) and [faiss-gpu](https://anaconda.org/pytorch/faiss-gpu). The library is mostly implemented in C++, the only dependency is a [BLAS](https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms) implementation. Optional GPU support is provided via CUDA, and the Python interface is also optional. It compiles with cmake. See [INSTALL.md](INSTALL.md) for details.
 
 ## How Faiss works
 
@@ -42,18 +24,19 @@ Faiss is built around an index type that stores a set of vectors, and provides a
 
 - search time
 - search quality
-- memory used per index vector 
+- memory used per index vector
 - training time
+- adding time
 - need for external data for unsupervised training
 
 The optional GPU implementation provides what is likely (as of March 2017) the fastest exact and approximate (compressed-domain) nearest neighbor search implementation for high-dimensional vectors, fastest Lloyd's k-means, and fastest small k-selection algorithm known. [The implementation is detailed here](https://arxiv.org/abs/1702.08734).
 
 ## Full documentation of Faiss
 
-The following are entry points for documentation: 
+The following are entry points for documentation:
 
-- the full documentation, including a [tutorial](https://github.com/facebookresearch/faiss/wiki/Getting-started), a [FAQ](https://github.com/facebookresearch/faiss/wiki/FAQ) and a [troubleshooting section](https://github.com/facebookresearch/faiss/wiki/Troubleshooting) can be found on the [wiki page](http://github.com/facebookresearch/faiss/wiki)
-- the [doxygen documentation](http://rawgithub.com/facebookresearch/faiss/master/docs/html/annotated.html) gives per-class information
+- the full documentation can be found on the [wiki page](http://github.com/facebookresearch/faiss/wiki), including a [tutorial](https://github.com/facebookresearch/faiss/wiki/Getting-started), a [FAQ](https://github.com/facebookresearch/faiss/wiki/FAQ) and a [troubleshooting section](https://github.com/facebookresearch/faiss/wiki/Troubleshooting)
+- the [doxygen documentation](https://faiss.ai/) gives per-class information extracted from code comments
 - to reproduce results from our research papers, [Polysemous codes](https://arxiv.org/abs/1609.01882) and [Billion-scale similarity search with GPUs](https://arxiv.org/abs/1702.08734), refer to the [benchmarks README](benchs/README.md). For [
 Link and code: Fast indexing with graphs and compact regression codes](https://arxiv.org/abs/1804.09996), see the [link_and_code README](benchs/link_and_code)
 
@@ -63,26 +46,32 @@ The main authors of Faiss are:
 - [Hervé Jégou](https://github.com/jegou) initiated the Faiss project and wrote its first implementation
 - [Matthijs Douze](https://github.com/mdouze) implemented most of the CPU Faiss
 - [Jeff Johnson](https://github.com/wickedfoo) implemented all of the GPU Faiss
-- [Lucas Hosseini](https://github.com/beauby) implemented the binary indexes
+- [Lucas Hosseini](https://github.com/beauby) implemented the binary indexes and the build system
+- [Chengqi Deng](https://github.com/KinglittleQ) implemented NSG, NNdescent and much of the additive quantization code.
 
 ## Reference
 
 Reference to cite when you use Faiss in a research paper:
 
 ```
-@article{JDH17,
-  title={Billion-scale similarity search with GPUs},
+@article{johnson2019billion,
+  title={Billion-scale similarity search with {GPUs}},
   author={Johnson, Jeff and Douze, Matthijs and J{\'e}gou, Herv{\'e}},
-  journal={arXiv preprint arXiv:1702.08734},
-  year={2017}
+  journal={IEEE Transactions on Big Data},
+  volume={7},
+  number={3},
+  pages={535--547},
+  year={2019},
+  publisher={IEEE}
 }
 ```
 
 ## Join the Faiss community
 
-For public discussion of Faiss or for questions, there is a Facebook public discussion group at https://www.facebook.com/groups/faissusers/
+For public discussion of Faiss or for questions, there is a Facebook group at https://www.facebook.com/groups/faissusers/
 
-We monitor the [issues page](http://github.com/facebookresearch/faiss/issues) of the repository. You can report bugs, ask questions, etc.
+We monitor the [issues page](http://github.com/facebookresearch/faiss/issues) of the repository.
+You can report bugs, ask questions, etc.
 
 ## License
 

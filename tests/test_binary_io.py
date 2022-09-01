@@ -3,9 +3,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-#! /usr/bin/env python2
-
 """Binary indexes (de)serialization"""
+
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import numpy as np
 import unittest
@@ -37,7 +37,8 @@ class TestBinaryFlat(unittest.TestCase):
         index.add(self.xb)
         D, I = index.search(self.xq, 3)
 
-        _, tmpnam = tempfile.mkstemp()
+        fd, tmpnam = tempfile.mkstemp()
+        os.close(fd)
         try:
             faiss.write_index_binary(index, tmpnam)
 
@@ -74,8 +75,8 @@ class TestBinaryIVF(unittest.TestCase):
         index.add(self.xb)
         D, I = index.search(self.xq, 3)
 
-        _, tmpnam = tempfile.mkstemp()
-
+        fd, tmpnam = tempfile.mkstemp()
+        os.close(fd)
         try:
             faiss.write_index_binary(index, tmpnam)
 
@@ -107,7 +108,8 @@ class TestObjectOwnership(unittest.TestCase):
         index = faiss.IndexBinaryFlat(d)
         index.add(self.xb)
 
-        _, tmpnam = tempfile.mkstemp()
+        fd, tmpnam = tempfile.mkstemp()
+        os.close(fd)
         try:
             faiss.write_index_binary(index, tmpnam)
 
@@ -137,8 +139,8 @@ class TestBinaryFromFloat(unittest.TestCase):
         index.add(self.xb)
         D, I = index.search(self.xq, 3)
 
-        _, tmpnam = tempfile.mkstemp()
-
+        fd, tmpnam = tempfile.mkstemp()
+        os.close(fd)
         try:
             faiss.write_index_binary(index, tmpnam)
 
@@ -171,8 +173,8 @@ class TestBinaryHNSW(unittest.TestCase):
         index.add(self.xb)
         D, I = index.search(self.xq, 3)
 
-        _, tmpnam = tempfile.mkstemp()
-
+        fd, tmpnam = tempfile.mkstemp()
+        os.close(fd)
         try:
             faiss.write_index_binary(index, tmpnam)
 
@@ -197,8 +199,8 @@ class TestBinaryHNSW(unittest.TestCase):
         index.add(self.xb)
         D, I = index.search(self.xq, 3)
 
-        _, tmpnam = tempfile.mkstemp()
-
+        fd, tmpnam = tempfile.mkstemp()
+        os.close(fd)
         try:
             faiss.write_index_binary(index, tmpnam)
 

@@ -1,9 +1,9 @@
+#! /usr/bin/env python2
+
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-#! /usr/bin/env python2
 
 from __future__ import print_function
 import numpy as np
@@ -38,7 +38,7 @@ for d in 3, 4, 12, 36, 64:
     distances = np.empty((xd, yd), dtype='float32')
 
     t0 = time.time()
-    for i in xrange(xd):
+    for i in range(xd):
         faiss.fvec_inner_products_ny(swig_ptr(distances[i]),
                                      swig_ptr(x[i]),
                                      swig_ptr(y),
@@ -66,7 +66,7 @@ for d in 3, 4, 12, 36, 64:
     distances = np.empty((xd, yd), dtype='float32')
 
     t0 = time.time()
-    for i in xrange(xd):
+    for i in range(xd):
         faiss.fvec_L2sqr_ny(swig_ptr(distances[i]),
                             swig_ptr(x[i]),
                             swig_ptr(y),

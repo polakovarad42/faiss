@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # This source code is licensed under the MIT license found in the
@@ -29,7 +31,7 @@ class CombinedIndex:
                 indexes.append(index)
                 il = faiss.extract_index_ivf(index).invlists
             else:
-                assert False
+                raise AssertionError
             ilv.push_back(il)
         print()
 

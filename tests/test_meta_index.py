@@ -3,15 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-#! /usr/bin/env python2
-
-# translation of test_meta_index.lua
-
+import os
+import sys
 import numpy as np
 import faiss
 import unittest
 
-from common import Randu10k
+from common_faiss_tests import Randu10k
 
 ru = Randu10k()
 
@@ -34,7 +32,7 @@ class IDRemap(unittest.TestCase):
         _Dref, Iref = index.search(xq, k)
 
         # try a remapping
-        ids = np.arange(nb)[::-1].copy()
+        ids = np.arange(nb)[::-1].copy().astype('int64')
 
         sub_index = faiss.IndexPQ(d, 8, 8)
         index2 = faiss.IndexIDMap(sub_index)
@@ -62,7 +60,7 @@ class IDRemap(unittest.TestCase):
         _Dref, Iref = index.search(xq, k)
 
         # try a remapping
-        ids = np.arange(nb)[::-1].copy()
+        ids = np.arange(nb)[::-1].copy().astype('int64')
 
         index2 = faiss.IndexIVFPQ(coarse_quantizer, d,
                                         ncentroids, 8, 8)
@@ -77,6 +75,8 @@ class IDRemap(unittest.TestCase):
 
 class Shards(unittest.TestCase):
 
+    @unittest.skipIf(os.name == "posix" and os.uname().sysname == "Darwin",
+                     "There is a bug in the OpenMP implementation on OSX.")
     def test_shards(self):
         k = 32
         ref_index = faiss.IndexFlatL2(d)
@@ -210,14 +210,13 @@ class Merge(unittest.TestCase):
             index.add(xb)
         else:
             gen = np.random.RandomState(1234)
-            id_list = gen.permutation(nb * 7)[:nb]
+            id_list = gen.permutation(nb * 7)[:nb].astype('int64')
             index.add_with_ids(xb, id_list)
-
 
         print('ref search ntotal=%d' % index.ntotal)
         Dref, Iref = index.search(xq, k)
 
-        toremove = np.zeros(nq * k, dtype=int)
+        toremove = np.zeros(nq * k, dtype='int64')
         nr = 0
         for i in range(nq):
             for j in range(k):
@@ -242,13 +241,17 @@ class Merge(unittest.TestCase):
         D, I = index.search(xq, k)
 
         # make sure results are in the same order with even ones removed
+        ndiff = 0
         for i in range(nq):
             j2 = 0
             for j in range(k):
                 if Iref[i, j] % 2 != 0:
-                    assert I[i, j2] == Iref[i, j]
+                    if I[i, j2] != Iref[i, j]:
+                        ndiff += 1
                     assert abs(D[i, j2] - Dref[i, j]) < 1e-5
                     j2 += 1
+        # draws are ordered arbitrarily
+        assert ndiff < 5
 
     def test_remove(self):
         self.do_test_remove(1)
